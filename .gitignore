@@ -1,0 +1,32 @@
+# Binaries
+build/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+src/*.db
+src/*.db-shm
+src/*.db-wal
+
+# Test files
+*.test
+coverage.out
+coverage.html
+
+# Go
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Distribution
+dist/
+
+# AUR
+*.pkg.tar.zst
+*.sig

@@ -1,0 +1,129 @@
+# This is an example .goreleaser.yml file with some sensible defaults.
+# Make sure to check the documentation at https://goreleaser.com
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+builds:
+  env:
+    - CGO_ENABLED=0
+  goos:
+    - linux
+    - darwin
+    - windows
+  goarch:
+    - amd64
+    - arm64
+  goarm:
+    - ''
+  main: ./src/main.go
+  binary: lazysmtp
+  ldflags:
+    - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+
+archives:
+  - format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}-
+      {{- title .Os }}-
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else if eq .Arch "arm" }}arm
+      {{- else }}{{ .Arch }}{{ end }}
+    files:
+      - README.md
+      - LICENSE
+      - docs/*
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^build:'
+      - '^chore:'
+
+# AUR specific configuration for Arch Linux
+aur:
+  name: lazysmtp-git
+  description: A terminal-based SMTP testing tool for developers with TUI interface
+  homepage: https://github.com/yourusername/lazysmtp
+  license: MIT
+  maintainers:
+    - Your Name <your.email@example.com>
+  contributors:
+    - Name <email@example.com>
+  private_key: "{{ .Env.AUR_PRIVATE_KEY }}"
+  git_url: "ssh://aur@aur.archlinux.org/lazysmtp-git.git"
+  package: |-
+    # bin
+    install -Dm755 "${srcdir}/lazysmtp" "${pkgdir}/usr/bin/lazysmtp"
+    
+    # license
+    install -Dm644 "${srcdir}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    
+    # docs
+    install -Dm644 "${srcdir}/README.md" "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+    install -Dm644 "${srcdir}/docs/laravel-integration.md" "${pkgdir}/usr/share/doc/${pkgname}/laravel-integration.md"
+    install -Dm644 "${srcdir}/docs/release-aur.md" "${pkgdir}/usr/share/doc/${pkgname}/release-aur.md"
+  commit_author:
+    name: goreleaserbot
+    email: bot@goreleaser.com
+  skip_upload: auto
+
+nfpms:
+  - id: lazysmtp
+    file_name_template: "{{ .ConventionalFileName }}"
+    homepage: https://github.com/yourusername/lazysmtp
+    description: |-
+      A terminal-based SMTP testing tool for developers with TUI interface.
+      lazySMTP runs a local SMTP server with a TUI interface for inspecting
+      received emails in real-time.
+    maintainer: Your Name <your.email@example.com>
+    license: MIT
+    vendor: lazysmtp
+    bindir: /usr/bin
+    section: utils
+    contents:
+      - src: ./lazysmtp
+        dst: /usr/bin/lazysmtp
+        file_info:
+          mode: 0755
+      - src: ./README.md
+        dst: /usr/share/doc/lazysmtp/README.md
+        file_info:
+          mode: 0644
+      - src: ./LICENSE
+        dst: /usr/share/doc/lazysmtp/LICENSE
+        file_info:
+          mode: 0644
+      - src: ./docs/
+        dst: /usr/share/doc/lazysmtp/docs
+        file_info:
+          mode: 0644
+    formats:
+      - deb
+      - rpm
+      - apk
+
+# Homebrew
+brews:
+  - name: lazysmtp
+    homepage: https://github.com/yourusername/lazysmtp
+    description: A terminal-based SMTP testing tool for developers
+    license: MIT
+    skip_upload: auto
+    install: |
+      bin.install "lazysmtp"
+    test: |
+      system "#{bin}/lazysmtp", "--help"
