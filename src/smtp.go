@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"net/mail"
+	"regexp"
 	"strings"
 	"time"
 
@@ -52,14 +54,7 @@ func (s *Session) Data(r io.Reader) error {
 	}
 
 	id := generateID()
-	email := Email{
-		ID:      id,
-		From:    s.from,
-		To:      s.to,
-		Subject: extractSubject(s.body.String()),
-		Body:    s.body.String(),
-		Date:    time.Now().Format(time.RFC1123),
-	}
+	email := parseEmail(s.body.String(), s.from, s.to, id)
 
 	err = SaveEmail(s.db, email)
 	if s.notify != nil {
@@ -166,4 +161,79 @@ func extractSubject(body string) string {
 		}
 	}
 	return "(no subject)"
+}
+
+func parseEmail(rawEmail string, from string, to string, id string) Email {
+	// Try to parse using net/mail
+	msg, err := mail.ReadMessage(strings.NewReader(rawEmail))
+
+	if err != nil {
+		// Fallback to simple parsing if net/mail fails
+		return Email{
+			ID:      id,
+			From:    from,
+			To:      to,
+			Subject: extractSubject(rawEmail),
+			Body:    rawEmail,
+			Date:    time.Now().Format(time.RFC1123),
+			Headers: make(map[string]string),
+		}
+	}
+
+	// Extract body content
+	bodyBytes, err := io.ReadAll(msg.Body)
+	if err != nil {
+		bodyBytes = []byte("Error reading body")
+	}
+	body := string(bodyBytes)
+
+	// Extract headers
+	headers := make(map[string]string)
+	for key, values := range msg.Header {
+		if len(values) > 0 {
+			headers[key] = values[0]
+		}
+	}
+
+	// Get subject from headers
+	subject := msg.Header.Get("Subject")
+	if subject == "" {
+		subject = "(no subject)"
+	}
+
+	// Get date from headers, fallback to current time
+	date := time.Now().Format(time.RFC1123)
+	if dateHeader := headers["Date"]; dateHeader != "" {
+		date = dateHeader
+	}
+
+	return Email{
+		ID:      id,
+		From:    from,
+		To:      to,
+		Subject: subject,
+		Body:    body,
+		Date:    date,
+		Headers: headers,
+	}
+}
+
+func htmlToText(html string) string {
+	// Remove HTML tags
+	re := regexp.MustCompile(`<[^>]*>`)
+	text := re.ReplaceAllString(html, "")
+
+	// Replace multiple whitespace with single space
+	re = regexp.MustCompile(`\s+`)
+	text = re.ReplaceAllString(text, " ")
+
+	// Decode common HTML entities
+	text = strings.ReplaceAll(text, "&amp;", "&")
+	text = strings.ReplaceAll(text, "&lt;", "<")
+	text = strings.ReplaceAll(text, "&gt;", ">")
+	text = strings.ReplaceAll(text, "&quot;", "\"")
+	text = strings.ReplaceAll(text, "&apos;", "'")
+	text = strings.ReplaceAll(text, "&nbsp;", " ")
+
+	return strings.TrimSpace(text)
 }

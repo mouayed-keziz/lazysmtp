@@ -13,7 +13,7 @@ func SetLayout(g *gocui.Gui, state *AppState, asciiArt string) error {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
-		v.Title = "SMTP Server"
+		v.Title = "lazySMTP Config"
 		v.Wrap = false
 		v.FrameColor = gocui.ColorCyan
 		v.TitleColor = gocui.ColorCyan
@@ -138,6 +138,23 @@ func SetKeybindings(g *gocui.Gui, state *AppState, asciiArt string) error {
 			return err
 		}
 		if err := updateServerInfo(gui, state); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if err := g.SetKeybinding("", 'm', gocui.ModNone, func(gui *gocui.Gui, v *gocui.View) error {
+		if state.Mode == "text" {
+			state.Mode = "html"
+		} else {
+			state.Mode = "text"
+		}
+		if err := updateServerInfo(gui, state); err != nil {
+			return err
+		}
+		if err := updateMainView(gui, state, asciiArt); err != nil {
 			return err
 		}
 		return nil

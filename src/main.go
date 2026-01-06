@@ -49,6 +49,7 @@ func main() {
 		SMTP:               NewSMTPServer(*port, db, newEmailChan),
 		DB:                 db,
 		NewEmailChan:       newEmailChan,
+		Mode:               "text",
 	}
 
 	if err := state.SMTP.Start(); err != nil {
@@ -155,10 +156,17 @@ func updateServerInfo(g *gocui.Gui, state *AppState) error {
 		statusColor = "\x1b[0;32m"
 	}
 
+	modeColor := "\x1b[0;33m"
+	if state.Mode == "html" {
+		modeColor = "\x1b[0;35m"
+	}
+
 	fmt.Fprintf(v, "Status: %s%s\x1b[0m\n", statusColor, status)
 	fmt.Fprintf(v, "\x1b[0;36mPort:\x1b[0m %d\n", state.SMTP.Port())
 	fmt.Fprintf(v, "\x1b[0;36mEmails:\x1b[0m %d\n", len(state.Emails))
+	fmt.Fprintf(v, "Mode: %s%s\x1b[0m\n", modeColor, state.Mode)
 	fmt.Fprintf(v, "\n\x1b[0;33m[SPACE]\x1b[0m Toggle Server")
+	fmt.Fprintf(v, "\n\x1b[0;33m[m]\x1b[0m Toggle Mode")
 
 	return nil
 }
@@ -177,7 +185,20 @@ func updateMainView(g *gocui.Gui, state *AppState, art string) error {
 		fmt.Fprintf(v, "\x1b[1;36mTo:\x1b[0m %s\n", email.To)
 		fmt.Fprintf(v, "\x1b[1;36mSubject:\x1b[0m %s\n", email.Subject)
 		fmt.Fprintf(v, "\x1b[1;36mDate:\x1b[0m %s\n", email.Date)
-		fmt.Fprintf(v, "\n\x1b[1;36mBody:\x1b[0m\n%s\n", email.Body)
+
+		// Show content type if available
+		if contentType := email.Headers["Content-Type"]; contentType != "" {
+			fmt.Fprintf(v, "\x1b[1;36mContent-Type:\x1b[0m %s\n", contentType)
+		}
+
+		var bodyContent string
+		if state.Mode == "text" {
+			bodyContent = htmlToText(email.Body)
+		} else {
+			bodyContent = email.Body
+		}
+
+		fmt.Fprintf(v, "\n\x1b[1;36mBody (%s mode):\x1b[0m\n%s\n", state.Mode, bodyContent)
 	} else {
 		fmt.Fprint(v, art)
 		fmt.Fprintf(v, "\n\n\x1b[1;33mControls:\x1b[0m\n")
@@ -185,6 +206,7 @@ func updateMainView(g *gocui.Gui, state *AppState, art string) error {
 		fmt.Fprintf(v, "\x1b[0;36mESC\x1b[0m - Go back to home\n")
 		fmt.Fprintf(v, "\x1b[0;36md\x1b[0m - Delete email\n")
 		fmt.Fprintf(v, "\x1b[0;36mSPACE\x1b[0m - Toggle server\n")
+		fmt.Fprintf(v, "\x1b[0;36mm\x1b[0m - Toggle text/html mode\n")
 		fmt.Fprintf(v, "\x1b[0;36mq\x1b[0m / \x1b[0;36mCtrl+C\x1b[0m - Quit\n")
 	}
 
