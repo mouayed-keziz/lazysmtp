@@ -32,16 +32,26 @@ func main() {
 	}
 	defer db.Close()
 
+	emails, err := GetAllEmails(db)
+	if err != nil {
+		log.Printf("Warning: Failed to load emails from database: %v", err)
+		emails = []Email{}
+	}
+
 	newEmailChan := make(chan struct{}, 100)
 
 	state := &AppState{
 		SelectedEmailIndex: -1,
-		Emails:             []Email{},
+		Emails:             emails,
 		SMTP:               NewSMTPServer(*port, db, newEmailChan),
 		DB:                 db,
 		NewEmailChan:       newEmailChan,
 		Mode:               "text",
+		ShowPopup:          false,
+		PopupScroll:        0,
 	}
+
+	fmt.Printf("\n\x1b[0;36mDatabase path:\x1b[0m %s\n\n", dbPathToUse)
 
 	if err := state.SMTP.Start(); err != nil {
 	}
@@ -76,16 +86,20 @@ func main() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		state.SMTP.Stop()
-		g.Close()
-		os.Exit(0)
+		cleanup(g, state)
 	}()
 
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Fatalf("GUI error: %v", err)
 	}
 
+	cleanup(g, state)
+}
+
+func cleanup(g *gocui.Gui, state *AppState) {
 	state.SMTP.Stop()
+	g.Close()
+	fmt.Print("\x1b[2J\x1b[H")
 }
 
 func quit(g *gocui.Gui, v *gocui.View) error {

@@ -11,6 +11,8 @@ type AppState struct {
 	DB                 *sql.DB
 	NewEmailChan       chan struct{}
 	Mode               string // "text" or "html"
+	ShowPopup          bool
+	PopupScroll        int
 }
 
 type Email struct {
