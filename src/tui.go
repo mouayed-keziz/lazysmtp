@@ -4,10 +4,10 @@ import (
 	"github.com/awesome-gocui/gocui"
 )
 
-func SetLayout(g *gocui.Gui, state *AppState, asciiArt string) error {
+func SetLayout(g *gocui.Gui, state *AppState) error {
 	maxX, maxY := g.Size()
 
-	leftPanelWidth := 60
+	leftPanelWidth := 50
 
 	if v, err := g.SetView("server", 0, 0, leftPanelWidth, maxY/3, 0); err != nil {
 		if err != gocui.ErrUnknownView {
@@ -45,14 +45,14 @@ func SetLayout(g *gocui.Gui, state *AppState, asciiArt string) error {
 	if err := updateEmailList(g, state); err != nil {
 		return err
 	}
-	if err := updateMainView(g, state, asciiArt); err != nil {
+	if err := updateMainView(g, state); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func SetKeybindings(g *gocui.Gui, state *AppState, asciiArt string) error {
+func SetKeybindings(g *gocui.Gui, state *AppState) error {
 	if err := g.SetKeybinding("", 'q', gocui.ModNone, quit); err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func SetKeybindings(g *gocui.Gui, state *AppState, asciiArt string) error {
 		if err := updateEmailList(gui, state); err != nil {
 			return err
 		}
-		if err := updateMainView(gui, state, asciiArt); err != nil {
+		if err := updateMainView(gui, state); err != nil {
 			return err
 		}
 		return nil
@@ -81,7 +81,7 @@ func SetKeybindings(g *gocui.Gui, state *AppState, asciiArt string) error {
 			if err := updateEmailList(gui, state); err != nil {
 				return err
 			}
-			if err := updateMainView(gui, state, asciiArt); err != nil {
+			if err := updateMainView(gui, state); err != nil {
 				return err
 			}
 		}
@@ -96,7 +96,7 @@ func SetKeybindings(g *gocui.Gui, state *AppState, asciiArt string) error {
 			if err := updateEmailList(gui, state); err != nil {
 				return err
 			}
-			if err := updateMainView(gui, state, asciiArt); err != nil {
+			if err := updateMainView(gui, state); err != nil {
 				return err
 			}
 		}
@@ -121,7 +121,7 @@ func SetKeybindings(g *gocui.Gui, state *AppState, asciiArt string) error {
 			if err := updateEmailList(gui, state); err != nil {
 				return err
 			}
-			if err := updateMainView(gui, state, asciiArt); err != nil {
+			if err := updateMainView(gui, state); err != nil {
 				return err
 			}
 			if err := updateServerInfo(gui, state); err != nil {
@@ -154,7 +154,7 @@ func SetKeybindings(g *gocui.Gui, state *AppState, asciiArt string) error {
 		if err := updateServerInfo(gui, state); err != nil {
 			return err
 		}
-		if err := updateMainView(gui, state, asciiArt); err != nil {
+		if err := updateMainView(gui, state); err != nil {
 			return err
 		}
 		return nil

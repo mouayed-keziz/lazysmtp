@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -13,19 +14,8 @@ import (
 )
 
 var (
-	port     = flag.Int("port", 2525, "SMTP server port")
-	dbPath   = flag.String("db", "", "Path to SQLite database (default: XDG data directory)")
-	asciiArt = `
- ___      _______  _______  __   __  _______  __   __  _______  _______ 
-|   |    |   _   ||       ||  | |  ||       ||  |_|  ||       ||       |
-|   |    |  |_|  ||____   ||  |_|  ||  _____||       ||_     _||    _  |
-|   |    |       | ____|  ||       || |_____ |       |  |   |  |   |_| |
-|   |___ |       || ______||_     _||_____  ||       |  |   |  |    ___|
-|       ||   _   || |_____   |   |   _____| || ||_|| |  |   |  |   |    
-|_______||__| |__||_______|  |___|  |_______||_|   |_|  |___|  |___|    
-                                        
-   SMTP Testing Tool for Developers
-`
+	port   = flag.Int("port", 2525, "SMTP server port")
+	dbPath = flag.String("db", "", "Path to SQLite database (default: XDG data directory)")
 )
 
 func main() {
@@ -62,11 +52,11 @@ func main() {
 	}
 	defer g.Close()
 
-	if err := SetKeybindings(g, state, asciiArt); err != nil {
+	if err := SetKeybindings(g, state); err != nil {
 		log.Fatalf("Failed to set keybindings: %v", err)
 	}
 
-	if err := SetLayout(g, state, asciiArt); err != nil {
+	if err := SetLayout(g, state); err != nil {
 		log.Fatalf("Failed to set layout: %v", err)
 	}
 
@@ -145,6 +135,60 @@ func updateEmailList(g *gocui.Gui, state *AppState) error {
 	return nil
 }
 
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return s[:maxLen]
+	}
+	return s[:maxLen-3] + "..."
+}
+
+func printTable(v *gocui.View, headers []string, rows [][]string, colWidths []int) {
+	color := "\x1b[0;36m"
+	reset := "\x1b[0m"
+
+	top := color + "┌" + reset
+	middle := color + "├" + reset
+	bottom := color + "└" + reset
+	for i, w := range colWidths {
+		top += color + strings.Repeat("─", w+2) + reset
+		middle += color + strings.Repeat("─", w+2) + reset
+		bottom += color + strings.Repeat("─", w+2) + reset
+		if i < len(colWidths)-1 {
+			top += color + "┬" + reset
+			middle += color + "┼" + reset
+			bottom += color + "┴" + reset
+		}
+	}
+	top += color + "┐" + reset
+	middle += color + "┤" + reset
+	bottom += color + "┘" + reset
+
+	fmt.Fprintln(v, top)
+
+	headerRow := color + "│" + reset
+	for i, header := range headers {
+		padded := fmt.Sprintf(" %-*s ", colWidths[i], header)
+		headerRow += color + padded + reset + color + "│" + reset
+	}
+	fmt.Fprintln(v, headerRow)
+
+	fmt.Fprintln(v, middle)
+
+	for _, row := range rows {
+		rowStr := color + "│" + reset
+		for i, cell := range row {
+			padded := fmt.Sprintf(" %-*s ", colWidths[i], truncateString(cell, colWidths[i]))
+			rowStr += color + padded + reset + color + "│" + reset
+		}
+		fmt.Fprintln(v, rowStr)
+	}
+
+	fmt.Fprintln(v, bottom)
+}
+
 func formatHumanDate(dateStr string) string {
 	t, err := time.Parse(time.RFC1123, dateStr)
 	if err != nil {
@@ -195,7 +239,7 @@ func updateServerInfo(g *gocui.Gui, state *AppState) error {
 	return nil
 }
 
-func updateMainView(g *gocui.Gui, state *AppState, art string) error {
+func updateMainView(g *gocui.Gui, state *AppState) error {
 	v, err := g.View("main")
 	if err != nil {
 		return err
@@ -204,16 +248,21 @@ func updateMainView(g *gocui.Gui, state *AppState, art string) error {
 
 	if state.SelectedEmailIndex >= 0 && state.SelectedEmailIndex < len(state.Emails) {
 		email := state.Emails[state.SelectedEmailIndex]
-		fmt.Fprintf(v, "\x1b[1;36mID:\x1b[0m %s\n", email.ID)
-		fmt.Fprintf(v, "\x1b[1;36mFrom:\x1b[0m %s\n", email.From)
-		fmt.Fprintf(v, "\x1b[1;36mTo:\x1b[0m %s\n", email.To)
-		fmt.Fprintf(v, "\x1b[1;36mSubject:\x1b[0m %s\n", email.Subject)
-		fmt.Fprintf(v, "\x1b[1;36mDate:\x1b[0m %s\n", email.Date)
+		fmt.Fprintf(v, "\x1b[1;36mEmail Details:\x1b[0m\n")
 
-		// Show content type if available
-		if contentType := email.Headers["Content-Type"]; contentType != "" {
-			fmt.Fprintf(v, "\x1b[1;36mContent-Type:\x1b[0m %s\n", contentType)
+		emailRows := [][]string{
+			{"ID", email.ID},
+			{"From", email.From},
+			{"To", email.To},
+			{"Subject", email.Subject},
+			{"Date", email.Date},
 		}
+
+		if contentType := email.Headers["Content-Type"]; contentType != "" {
+			emailRows = append(emailRows, []string{"Content-Type", contentType})
+		}
+
+		printTable(v, []string{"Field", "Value"}, emailRows, []int{15, 38})
 
 		var bodyContent string
 		if state.Mode == "text" {
@@ -224,14 +273,24 @@ func updateMainView(g *gocui.Gui, state *AppState, art string) error {
 
 		fmt.Fprintf(v, "\n\x1b[1;36mBody (%s mode):\x1b[0m\n%s\n", state.Mode, bodyContent)
 	} else {
-		fmt.Fprint(v, art)
+		fmt.Fprint(v, GetColoredASCIIArt())
+		fmt.Fprintf(v, "\n\n\x1b[1;33mFeatures:\x1b[0m\n")
+		fmt.Fprintf(v, "\x1b[0;36m•\x1b[0m Lightweight SMTP server for testing\n")
+		fmt.Fprintf(v, "\x1b[0;36m•\x1b[0m Capture and view emails in real-time\n")
+		fmt.Fprintf(v, "\x1b[0;36m•\x1b[0m HTML and text mode support\n")
+		fmt.Fprintf(v, "\x1b[0;36m•\x1b[0m SQLite database for persistence\n")
+		fmt.Fprintf(v, "\x1b[0;36m•\x1b[0m Keyboard-driven TUI interface\n")
+		fmt.Fprintf(v, "\x1b[0;36m•\x1b[0m Perfect for development and testing\n")
+
 		fmt.Fprintf(v, "\n\n\x1b[1;33mControls:\x1b[0m\n")
-		fmt.Fprintf(v, "\x1b[0;36mj/k\x1b[0m - Navigate emails\n")
-		fmt.Fprintf(v, "\x1b[0;36mESC\x1b[0m - Go back to home\n")
-		fmt.Fprintf(v, "\x1b[0;36md\x1b[0m - Delete email\n")
-		fmt.Fprintf(v, "\x1b[0;36mSPACE\x1b[0m - Toggle server\n")
-		fmt.Fprintf(v, "\x1b[0;36mm\x1b[0m - Toggle text/html mode\n")
-		fmt.Fprintf(v, "\x1b[0;36mq\x1b[0m / \x1b[0;36mCtrl+C\x1b[0m - Quit\n")
+		printTable(v, []string{"Key", "Action"}, [][]string{
+			{"j/k", "Navigate emails"},
+			{"ESC", "Go back to home"},
+			{"d", "Delete selected email"},
+			{"SPACE", "Toggle server"},
+			{"m", "Toggle text/html"},
+			{"q / Ctrl+C", "Quit application"},
+		}, []int{15, 26})
 	}
 
 	return nil
