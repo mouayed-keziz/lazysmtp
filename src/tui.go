@@ -7,7 +7,7 @@ import (
 func SetLayout(g *gocui.Gui, state *AppState, asciiArt string) error {
 	maxX, maxY := g.Size()
 
-	leftPanelWidth := 45
+	leftPanelWidth := 60
 
 	if v, err := g.SetView("server", 0, 0, leftPanelWidth, maxY/3, 0); err != nil {
 		if err != gocui.ErrUnknownView {
@@ -19,7 +19,7 @@ func SetLayout(g *gocui.Gui, state *AppState, asciiArt string) error {
 		v.TitleColor = gocui.ColorCyan
 	}
 
-	if v, err := g.SetView("emails", 0, maxY/3, leftPanelWidth, maxY-2, 0); err != nil {
+	if v, err := g.SetView("emails", 0, maxY/3, leftPanelWidth, maxY-1, 0); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}

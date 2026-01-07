@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/awesome-gocui/gocui"
 )
@@ -119,7 +120,7 @@ func updateEmailList(g *gocui.Gui, state *AppState) error {
 	state.Emails = emails
 
 	for i, email := range emails {
-		maxLen := 35
+		maxLen := 30
 		to := email.To
 		subject := email.Subject
 
@@ -130,16 +131,39 @@ func updateEmailList(g *gocui.Gui, state *AppState) error {
 			subject = subject[:maxLen-3] + "..."
 		}
 
+		dateStr := formatHumanDate(email.Date)
+
 		prefix := " "
 		if i == state.SelectedEmailIndex {
 			prefix = ">"
-			fmt.Fprintf(v, "\x1b[0;34m%s %s | %s\x1b[0m\n", prefix, to, subject)
+			fmt.Fprintf(v, "\x1b[0;34m%s %s | %s | %s\x1b[0m\n", prefix, to, subject, dateStr)
 		} else {
-			fmt.Fprintf(v, "%s %s | %s\n", prefix, to, subject)
+			fmt.Fprintf(v, "%s %s | %s | %s\n", prefix, to, subject, dateStr)
 		}
 	}
 
 	return nil
+}
+
+func formatHumanDate(dateStr string) string {
+	t, err := time.Parse(time.RFC1123, dateStr)
+	if err != nil {
+		return dateStr
+	}
+	now := time.Now()
+	diff := now.Sub(t)
+
+	if diff < 24*time.Hour {
+		if diff < time.Hour {
+			if diff < time.Minute {
+				return "just now"
+			}
+			return fmt.Sprintf("%dm ago", int(diff.Minutes()))
+		}
+		return fmt.Sprintf("%dh ago", int(diff.Hours()))
+	}
+
+	return t.Format("2 Jan")
 }
 
 func updateServerInfo(g *gocui.Gui, state *AppState) error {
